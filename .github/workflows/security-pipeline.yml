@@ -1,0 +1,70 @@
+name: Security Pipeline
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  semgrep:
+    name: SAST - Semgrep
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep
+    steps:
+      - uses: actions/checkout@v6
+      - name: Run Semgrep
+        run: semgrep scan --config auto --json-output=semgrep.json --text-output=semgrep.txt
+      - name: Save Semgrep report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: semgrep-report
+          path: |
+            semgrep.json
+            semgrep.txt
+
+  npm-audit:
+    name: SCA - npm audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - name: Create package lock file
+        run: npm install --package-lock-only --ignore-scripts
+      - name: Run npm audit
+        run: |
+          npm audit --json > npm-audit.json || true
+          npm audit > npm-audit.txt || true
+      - name: Save npm audit report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: npm-audit-report
+          path: |
+            npm-audit.json
+            npm-audit.txt
+
+  zap:
+    name: DAST - OWASP ZAP baseline
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Build Juice Shop image
+        run: docker build -t juice-shop .
+      - name: Start Juice Shop
+        run: docker run -d --name juice-shop -p 3000:3000 juice-shop
+      - name: Wait for Juice Shop to start
+        run: timeout 300 bash -c 'until curl -s -o /dev/null http://localhost:3000; do sleep 5; done'
+      - name: Run ZAP baseline scan
+        uses: zaproxy/action-baseline@v0.15.0
+        with:
+          target: http://localhost:3000
+          allow_issue_writing: false
+          fail_action: false
+          artifact_name: zap-report
