@@ -186,13 +186,24 @@ function configureApp (app: ReturnType<typeof express>, seq: typeof sequelize) {
   /* Security middleware */
   app.use(helmet.noSniff())
   app.use(helmet.frameguard())
-  // app.use(helmet.xssFilter()); // = no protection from persisted XSS via RESTful API
   app.disable('x-powered-by')
-  app.use(featurePolicy({
-    features: {
-      payment: ["'self'"]
+  app.use(helmet.contentSecurityPolicy({
+    useDefaults: false,
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+      styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+      fontSrc: ["'self'", 'https://fonts.gstatic.com'],
+      imgSrc: ["'self'", 'data:', 'https:'],
+      connectSrc: ["'self'", 'ws:', 'wss:']
     }
   }))
+  app.use(helmet.crossOriginOpenerPolicy())
+  app.use(helmet.crossOriginEmbedderPolicy())
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    res.setHeader('Permissions-Policy', 'payment=(self)')
+    next()
+  })  }))
 
   /* Hiring header */
   app.use((req: Request, res: Response, next: NextFunction) => {
