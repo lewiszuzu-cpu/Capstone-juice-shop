@@ -203,7 +203,7 @@ function configureApp (app: ReturnType<typeof express>, seq: typeof sequelize) {
   app.use((req: Request, res: Response, next: NextFunction) => {
     res.setHeader('Permissions-Policy', 'payment=(self)')
     next()
-  })  }))
+  })
 
   /* Hiring header */
   app.use((req: Request, res: Response, next: NextFunction) => {
